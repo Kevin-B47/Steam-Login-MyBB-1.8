@@ -139,13 +139,35 @@ function steamlogin_activate()
 		"gid"			=> $gid
 	);
 
+	$steamlogin_userage = array(
+        "name" => "steamlogin_userage",
+        "title" => "User Age Requirement",
+        "description" => "How old must the steam account be in hours? Private accounts are also blocked with this enabled. Default -1 for no limit.",
+        "optionscode" => "numeric",
+        "value" => -1,
+        "disporder" => 7,
+        "gid" => $gid
+	);
+	
+	$steamlogin_required_games = array(
+        "name" => "steamlogin_required_games",
+        "title" => "Required Game IDs",
+        "description" => "Game IDs required to register seperated by a comma ex: 4000, 221100",
+        "optionscode" => "text",
+        "value" => "",
+        "disporder" => 8,
+        "gid" => $gid
+    );
+
     // Insert our Settings.
     $db->insert_query("settings", $steamlogin_api_key_setting);
     $db->insert_query("settings", $steamlogin_update_username_setting);
     $db->insert_query("settings", $steamlogin_update_avatar_setting);
     $db->insert_query("settings", $steamlogin_avatar_size_setting);
     $db->insert_query("settings", $steamlogin_required_field_setting);
-    $db->insert_query("settings", $steamlogin_username_badwords);
+	$db->insert_query("settings", $steamlogin_username_badwords);
+	$db->insert_query("settings", $steamlogin_userage);
+	$db->insert_query("settings", $steamlogin_required_games);
 
     // Rebuild our settings to show our new category.
     rebuild_settings();
@@ -504,7 +526,9 @@ function steam_output_to_misc() {
 	
 					redirect("index.php", 'Your account has been authenticated and you have been logged in.<br/> Powered By <a href="http://www.steampowered.com" target="_blank">Steam</a>', 'Login via Steam');
 	
-				} // close if($steam_info['status'] == 'success')
+				}elseif (isset($steam_info['status']) & $steam_info['status'] == "error" & isset($steam_info['message'])){
+					redirect("index.php", $steam_info['message'].'<br/> Powered By <a href="http://www.steampowered.com" target="_blank">Steam</a>', 'Login via Steam');
+				}
 	     	}
 	} // close else
     } // close if($mybb->input['action'] == 'steam_login')
