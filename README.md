@@ -16,6 +16,12 @@ php-json</strong><br/>
 <br/>
 To run this plugin you need a steam api key which can be requested at:<br/>
 http://steamcommunity.com/dev<br/>
+
+This plugin has the added features in the config of your mybb admin panel:
+* Disallow registering if the user doesn't have a certain game (this means this profile must be public)
+* Disallow registering if the user doesn't have a public profile
+* Disallow registering if the user's account isn't old enough
+
 -------------------------------<br/>
 The included plugin displaynames has been created by ZiNgA BuRgA at:<br/>
 http://mybbhacks.zingaburga.com/showthread.php?tid=259

@@ -27,6 +27,8 @@ class steam
 	
 	// You can get an API key by going to http://steamcommunity.com/dev/apikey
 	public $API_KEY = "";
+	public $AGE_REQUIRE = -1;
+	public $REQUIRED_GAMES = array();
 	
 	function __construct()
 	{
@@ -34,7 +36,14 @@ class steam
 		
 		$get_key       = $db->fetch_array($db->simple_select("settings", "name, value", "name = 'steamlogin_api_key'"));
 		$this->API_KEY = $get_key['value'];
+		$get_ageRequirement = $db->fetch_array($db->simple_select("settings", "name, value", "name = 'steamlogin_userage'"));
+	    $get_required_games = $db->fetch_array($db->simple_select("settings", "name, value", "name = 'steamlogin_required_games'"));
+		$this->AGE_REQUIRE = intVal($get_ageRequirement['value']);
 		
+		if (isset($get_required_games['value']) & strlen($get_required_games['value']) > 2){
+			 $this->REQUIRED_GAMES = explode(",", $get_required_games['value']);
+		}
+
 		// Check CURL is installed, if not KILL!
 		if (!function_exists('curl_version'))
 			die("You don't have CURL installed on your server. This is a requirement. Without it, nothing would work...");
@@ -251,6 +260,39 @@ class steam
 		
 		return $stringBuilder;
 	}
+
+	function isTimeOkay($timecreated){
+        $now = time();
+        $toInt = intval($timecreated);
+        file_put_contents("info.txt", "Got here\n", FILE_APPEND | LOCK_EX);
+        if ($toInt == 0){ return false;}
+        $passedTimeInHours = (($now - $toInt)/60)/60;
+        file_put_contents("info.txt", "Time passed: ". $passedTimeInHours. " needed: ". $this->AGE_REQUIRE."\n", FILE_APPEND | LOCK_EX);
+        if ($passedTimeInHours > $this->AGE_REQUIRE){
+            return true;
+        }
+        return false;
+    }
+    function doesOwnGames($gameJson){
+        $info = json_decode($gameJson, true);
+        if (!isset($info['response']) || !isset($info['response']['games'])){
+            return false;
+        }
+        $gameArray = $info['response']['games'];
+        $hashedGames = array();
+        $wasHit = false;
+        for ($i = 0; $i < count($this->REQUIRED_GAMES); $i++){
+            $hashedGames[intVal($this->REQUIRED_GAMES[$i])] = true;
+        }
+        for ($i = 0; $i < count($gameArray); $i++){
+            $appid = $gameArray[$i]['appid'];
+            if (isset($hashedGames[$appid])){
+                $wasHit = true;
+                break;
+            }
+        }
+        return $wasHit;
+    }
 	
 	/**
 	 * get_user_info
@@ -272,7 +314,38 @@ class steam
 			
 			if (isset($info_array['response']['players'][0]))
 			{
-				
+
+
+				if (isset($this->AGE_REQUIRE) & $this->AGE_REQUIRE > -1){
+                    if (isset($info_array['response']['players'][0]['timecreated'])){
+                        $isOkay = $this->isTimeOkay($info_array['response']['players'][0]['timecreated']);
+                        if (!$isOkay){
+                            $return_array = array(
+                                'status' => 'error',
+                                'message' => 'Your profile is not old enough to register!'
+                            );
+                            return $return_array;
+                        }
+                    }else{
+                        $return_array = array(
+                            'status' => 'error',
+                            'message' => 'Your profile must be public to register, you can switch it off after!'
+                        );
+                        return $return_array;
+                    }
+                }
+                if (count($this->REQUIRED_GAMES) > 0){
+                    $gameInfo = $this->curl('http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key='.$this->API_KEY.'&steamid='.$id['steamid']);
+                    $isGameInfoOkay = $this->doesOwnGames($gameInfo);
+                    if (!$isGameInfoOkay){
+                        $return_array = array(
+                            'status' => 'error',
+                            'message' => 'You do not own the required games to join this community!'
+                        );
+                        return $return_array;
+                    }
+                }
+
 				$player_info = $info_array['response']['players'][0];
 				
 				//Encoding the username from unicode and escaping it
